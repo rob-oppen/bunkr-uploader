@@ -17,9 +17,9 @@ A robust multi-threaded Python tool for uploading files to Bunkr.cr with automat
 1. Clone this repository.
 2. Install the package locally:
    ```bash
-   python -m pip install .
+   python -m pip install bunkr_uploader
    ```
-   This will install all dependencies and register the `bunkr-upload` and `bunkr-verify` commands.
+   This will install all dependencies and register the `bunkr_uploader` command.
 
 3. (Optional) Set your API token as an environment variable:
    ```bash
@@ -33,32 +33,22 @@ A robust multi-threaded Python tool for uploading files to Bunkr.cr with automat
 
 You can run these commands from any directory if your Python `Scripts` folder is in your PATH.
 
-### Batch Upload
+### Example commands
 ```bash
 # Standard command
-bunkr-upload C:\path\to\your\folder
+bunkr_uploader C:\path\to\your\folder -t TOKEN -a ALBUM_ID
 
 # Alternative if PATH isn't set
-python -m bunkr_uploader C:\path\to\your\folder
-```
-
-### Verify Album State
-Use this to get a report on what files are missing or extra.
-```bash
-# Standard command
-bunkr-verify C:\path\to\your\folder -a ALBUM_ID
-
-# Alternative if PATH isn't set
-python -m bunkr_uploader.verify C:\path\to\your\folder -a ALBUM_ID
+python -m bunkr_uploader C:\path\to\your\folder -t TOKEN -a ALBUM_ID
 ```
 
 ---
 
 ## Options & Flags
 
-### `bunkr-upload`
+### `bunkr_uploader`
 ```text
-usage: bunkr-upload [-h] [-t TOKEN] [-f FOLDER] [-a ALBUM] [-c CONNECTIONS] [-r RETRIES] [--no-save] file
+usage: bunkr_uploader [-h] [-t TOKEN] [-f FOLDER] [-a ALBUM] [-c CONNECTIONS] [-r RETRIES] [--no-save] file
 
 positional arguments:
   file                  File or directory to look for files in to upload
