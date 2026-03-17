@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bunkr-uploader"
+version = "0.2.0"
+description = "A high-performance, multi-threaded TUI uploader for Bunkr.cr with automatic album synchronization."
+readme = "README.md"
+authors = [{ name = "Bunkr-Uploader Contributors" }]
+license = { text = "MIT" }
+requires-python = ">=3.8"
+keywords = ["bunkr", "uploader", "tui", "synchronization", "batch", "upload"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Communications :: File Sharing",
+]
+dependencies = [
+    "requests>=2.25.0",
+    "requests-toolbelt>=1.0.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+bunkr-upload = "bunkr_uploader.upload:main"
+bunkr-verify = "bunkr_uploader.verify:main"
+bunkr_uploader = "bunkr_uploader.upload:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["bunkr_uploader*"]
