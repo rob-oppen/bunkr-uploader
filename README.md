@@ -12,6 +12,8 @@ A robust multi-threaded Python tool for uploading files to Bunkr.cr with automat
 - **Real-time TUI**: Beautiful terminal interface using `rich` showing progress bars for each thread.
 - **Verification Tool**: Includes a separate script to verify the integrity of your uploads.
 
+![Bunkr Uploader TUI](assets/tui_screenshot.png)
+
 ## Setup
 
 1. Clone this repository.
