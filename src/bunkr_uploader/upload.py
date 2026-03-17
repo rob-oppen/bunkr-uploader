@@ -217,25 +217,54 @@ def main(argv=None):
     with console.status(f"[bold green]Syncing with Bunkr Album {album_id}...") as status:
         try:
             remote_files = uploader.get_album_files(album_id)
-            # Match by original filename or name
-            remote_names = set()
-            for rf in remote_files:
-                if rf.get("original"): remote_names.add(rf["original"])
-                if rf.get("name"): remote_names.add(rf["name"])
             
+            # Map of remote files by their original filename and size
+            remote_names = set()
+            remote_by_size = {} # size -> list of original names
+            
+            for rf in remote_files:
+                orig = rf.get("original") or rf.get("name")
+                size = int(rf.get("size") or 0)
+                if orig:
+                    remote_names.add(orig)
+                if size > 0:
+                    if size not in remote_by_size: remote_by_size[size] = []
+                    remote_by_size[size].append(orig)
+
             current_log = set()
             if os.path.exists(log_path):
                 with open(log_path, "r", encoding="utf-8") as f:
                     current_log = set(l.strip() for l in f if l.strip())
             
-            # We skip a file if it exists remotely OR it's in our local "confirmed" log
-            # BUT we cross-reference: only trust the log if the file actually exists locally
-            reconciled = {n for n in remote_names if os.path.exists(os.path.join(directory, n))}
+            # Match local files against remote ones
+            for f_p in files:
+                basename = os.path.basename(f_p)
+                size = os.path.getsize(f_p)
+                
+                # 1. Exact name match
+                if basename in remote_names:
+                    reconciled.add(basename)
+                    continue
+                
+                # 2. Log match (as fallback if remote sync is flaky)
+                if basename in current_log:
+                    # Double check size if possible or just trust log
+                    reconciled.add(basename)
+                    continue
+
+                # 3. Size match (Experimental: if size is large and unique in album)
+                # This helps with Mojibake (emojis mangled by API)
+                if size > 1024 * 1024 and size in remote_by_size:
+                    # If multiple files have the same size, we check if any of them
+                    # share the same extension.
+                    matching_remote_names = remote_by_size[size]
+                    ext = os.path.splitext(basename)[1].lower()
+                    for r_name in matching_remote_names:
+                        if r_name.lower().endswith(ext):
+                            reconciled.add(basename)
+                            break
             
-            # Also trust the local log if remote sync was partial? (Bunkr API can be flaky)
-            # Actually, let's just use remote_names as the ultimate source of truth
-            
-            # Re-write log to match remote reality
+            # Re-write log to match our findings
             with open(log_path, "w", encoding="utf-8") as f:
                 for n in sorted(reconciled): f.write(f"{n}\n")
         except Exception as e:

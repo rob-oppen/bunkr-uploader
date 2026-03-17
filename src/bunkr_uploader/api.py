@@ -86,14 +86,33 @@ class BunkrUploader:
 
         while True:
             url = f"https://dash.bunkr.cr/api/uploads/{page}"
-            resp = requests.get(url, headers=headers, timeout=20)
-            resp.raise_for_status()
-            data = resp.json()
-            files = data.get("files", []) if isinstance(data, dict) else data
-            if not files: break
-            all_files.extend(files)
-            if len(files) < 50: break
-            page += 1
+            try:
+                resp = requests.get(url, headers=headers, timeout=20)
+                resp.raise_for_status()
+                data = resp.json()
+                
+                # Bunkr API can return either a list directly or a dict with a 'files' key
+                files = data.get("files", []) if isinstance(data, dict) else data
+                
+                if not files:
+                    break
+                    
+                all_files.extend(files)
+                
+                # If we get fewer than the likely page size, we might be at the end.
+                # But to be safe, we check if the next page returns anything.
+                # Historically Bunkr uses 50, but let's just increment and check 'if not files'.
+                if len(files) < 10: # Very likely the last page
+                     break
+
+                page += 1
+                if page > 1000: # Safety break
+                    break
+            except Exception as e:
+                # If we hit an error after some pages, return what we have
+                if all_files:
+                    break
+                raise e
         return all_files
 
     def create_album(self, name):
