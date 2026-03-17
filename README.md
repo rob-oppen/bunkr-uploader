@@ -1,6 +1,3 @@
-# bunkr-uploader
-Multi-threaded Python tool for uploading files / directories to Bunkr.cr with automatic album synchronization and batch processing.
-
 # Bunkr Uploader Tool
 
 A robust multi-threaded Python tool for uploading files to Bunkr.cr with automatic album synchronization and batch processing.
