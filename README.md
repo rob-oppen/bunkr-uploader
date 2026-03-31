@@ -62,6 +62,7 @@ options:
   -a, --album ALBUM     Existing Album ID to upload to (Optional)
   -c, --connections CONNECTIONS
                         Max parallel uploads (Default: 5)
+  --public              Make the album public when creating or uploading to it
   --no-save             Don't save uploaded file names to a log file
 ```
 
@@ -69,6 +70,7 @@ options:
 
 ### ✅ Achieved Features
 - [x] **Automatic Album Creation**: Automatically creates or finds an album if no ID is provided.
+- [x] **Album Privacy Control**: Option to set album privacy (--public) during creation or update.
 - [x] **Multi-threaded Parallel Uploads**: Up to 5 parallel uploads.
 - [x] **Full Album Synchronization**: fix page pagination handling for updating log file (36+ pages / 1700+ files tested).
 - [x] **Size-Aware Matching**: Prevents duplicates even when Bunkr mangles filenames with emojis.
@@ -79,7 +81,6 @@ options:
 
 
 ### ⏳ Planned Features / To-Do
-- [ ] **Album Privacy Control**: Option to set album privacy (public/private) during creation.
 - [ ] **Extension Filtering**: Allow specifying allowed types like `.mp4`, `.jpg`, `.png`.
 - [ ] **Size Filtering**: Option to restrict uploads by minimum or maximum file size.
 - [ ] **Date Filtering**: Only upload "new" files created/modified after a specific date.

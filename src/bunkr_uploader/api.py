@@ -115,21 +115,38 @@ class BunkrUploader:
                 raise e
         return all_files
 
-    def create_album(self, name):
+    def create_album(self, name, public=False):
         # Fetch albums to check if it exists
         resp = requests.get("https://dash.bunkr.cr/api/albums", headers=self.headers, timeout=15)
         resp.raise_for_status()
         data = resp.json()
         albums = data.get("albums", []) if isinstance(data, dict) else data
+        
+        album_id = None
         for a in albums:
-            if a.get("name", "").lower() == name.lower(): return a["id"]
+            if a.get("name", "").lower() == name.lower():
+                album_id = a["id"]
+                # If found and we want it public but it might not be, we'll hit update below
+                break
 
-        # Create new album
-        resp = requests.post("https://dash.bunkr.cr/api/albums", headers=self.headers, json={"name": name}, timeout=15)
-        resp.raise_for_status()
-        res = resp.json()
-        if not res.get("success"): raise Exception(f"Create album failed: {res}")
-        return res["id"]
+        if not album_id:
+            # Create new album
+            payload = {"name": name}
+            if public:
+                payload["public"] = 1
+                
+            resp = requests.post("https://dash.bunkr.cr/api/albums", headers=self.headers, json=payload, timeout=15)
+            resp.raise_for_status()
+            res = resp.json()
+            if not res.get("success"): raise Exception(f"Create album failed: {res}")
+            album_id = res["id"]
+        
+        # Optionally update public status if it exists but might be private
+        # Only do this if public is specifically requested
+        if public:
+            requests.post(f"https://dash.bunkr.cr/api/albums/{album_id}", headers=self.headers, json={"public": 1}, timeout=10)
+            
+        return album_id
 
     def upload_file(self, file_path, album_id=None, progress_callback=None):
         if not self.upload_url: self.verify_and_setup()

@@ -176,6 +176,7 @@ def main(argv=None):
     parser.add_argument("-f", "--folder", help="Target folder name")
     parser.add_argument("-a", "--album", type=int, help="Existing album ID")
     parser.add_argument("-c", "--connections", type=int, default=5, help="Parallel uploads")
+    parser.add_argument("--public", action="store_true", help="Make album public")
     
     args = parser.parse_args(argv)
     
@@ -210,7 +211,10 @@ def main(argv=None):
     album_id = args.album
     if not album_id:
         folder_name = args.folder or os.path.basename(directory)
-        album_id = uploader.create_album(folder_name)
+        album_id = uploader.create_album(folder_name, public=args.public)
+    elif args.public:
+        # If ID provided but --public also set, ensure it's public
+        uploader.create_album(os.path.basename(directory), public=True)
 
     # Sync Phase
     reconciled = set()
