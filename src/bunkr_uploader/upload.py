@@ -26,6 +26,7 @@ class BunkrTUI:
         self.failed_count = 0
         self.skipped_count = 0
         self.current_connections = connections
+        self.failures = [] # List of (filename, error_message)
         
         # Recent activity log (last 10 items)
         self.recent_activity = []
@@ -141,30 +142,41 @@ def upload_worker(uploader, file_path, album_id, log_path, log_lock, tui):
     def on_progress(fraction):
         tui.active_progress.update(task_id, completed=int(fraction * file_size))
 
-    try:
-        uploader.upload_file(file_path, album_id=album_id, progress_callback=on_progress)
-        
-        # Mark as done in log
-        with log_lock:
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"{filename}\n")
-        
-        with tui.lock:
-            tui.completed_count += 1
-        tui.add_activity("success", filename)
-        return True
-    except Exception as e:
-        with tui.lock:
-            tui.failed_count += 1
-        # Extract meaningful error
-        err_str = str(e)
-        if "403" in err_str: err_str = "Forbidden (403)"
-        elif "Connection" in err_str: err_str = "Network Error"
-        tui.add_activity("failed", f"{filename} ({err_str[:20]})")
-        return False
-    finally:
-        tui.active_progress.remove_task(task_id)
-        tui.update_overall()
+    retries = 3
+    for attempt in range(retries):
+        try:
+            uploader.upload_file(file_path, album_id=album_id, progress_callback=on_progress)
+            
+            # Mark as done in log
+            with log_lock:
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"{filename}\n")
+            
+            with tui.lock:
+                tui.completed_count += 1
+            tui.add_activity("success", filename)
+            tui.active_progress.remove_task(task_id)
+            tui.update_overall()
+            return True
+        except Exception as e:
+            if attempt < retries - 1:
+                # Update status for retry
+                tui.add_activity("failed", f"Retry {attempt+1}: {filename[:20]}")
+                import time
+                time.sleep(2 * (attempt + 1)) # Linear backoff
+                continue
+            
+            with tui.lock:
+                tui.failed_count += 1
+                tui.failures.append((filename, str(e)))
+            # Extract meaningful error
+            err_str = str(e)
+            if "403" in err_str: err_str = "Forbidden (403)"
+            elif "Connection" in err_str: err_str = "Network Error"
+            tui.add_activity("failed", f"{filename} ({err_str[:20]})")
+            tui.active_progress.remove_task(task_id)
+            tui.update_overall()
+            return False
 
 def main(argv=None):
     if argv is None:
@@ -198,6 +210,9 @@ def main(argv=None):
         files = [os.path.join(directory, f) for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
 
     log_path = os.path.join(directory, "uploaded_bunkr.log")
+    
+    # Exclude log file from upload list
+    files = [f for f in files if os.path.basename(f) != "uploaded_bunkr.log"]
     
     # Init Uploader
     uploader = BunkrUploader(token)
@@ -313,8 +328,23 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
 
-    console.print(f"\n[bold green]Batch upload finished! {tui.completed_count} uploaded, {tui.skipped_count} skipped.[/bold green]")
-    return 0
+    # Final Summary
+    if tui.failed_count > 0:
+        console.print(f"\n[bold red]Batch upload completed with {tui.failed_count} failures.[/bold red]")
+        console.print(f"[green]Success: {tui.completed_count}[/green] | [blue]Skipped: {tui.skipped_count}[/blue] | [red]Failed: {tui.failed_count}[/red]\n")
+        
+        table = Table(title="Failure Details", box=box.ROUNDED, border_style="red")
+        table.add_column("File", style="cyan")
+        table.add_column("Error", style="red")
+        
+        for fname, err in tui.failures:
+            table.add_row(fname, err)
+        
+        console.print(table)
+    else:
+        console.print(f"\n[bold green]Batch upload finished! {tui.completed_count} uploaded, {tui.skipped_count} skipped.[/bold green]")
+    
+    return 0 if tui.failed_count == 0 else 1
 
 if __name__ == "__main__":
     sys.exit(main())

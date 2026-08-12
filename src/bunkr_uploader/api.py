@@ -37,22 +37,29 @@ class BunkrUploader:
             raise Exception(f"Failed to verify token: {e}")
 
         # 2. Get upload node
-        try:
-            node_resp = requests.get(
-                "https://dash.bunkr.cr/api/node", headers=self.headers, timeout=15
-            )
-            node_resp.raise_for_status()
-            node_data = node_resp.json()
-            if not node_data.get("success"):
-                raise Exception("API denied access to upload nodes.")
-            
-            self.upload_url = node_data.get("url")
-            if not self.upload_url:
-                raise Exception("No upload server URL returned.")
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 403:
-                raise Exception("Access Forbidden (403): Could not retrieve upload node. Is your token valid?")
-            raise Exception(f"Failed to get upload node: {e}")
+        for _ in range(5):
+            try:
+                node_resp = requests.get(
+                    "https://dash.bunkr.cr/api/node", headers=self.headers, timeout=15
+                )
+                node_resp.raise_for_status()
+                node_data = node_resp.json()
+                if not node_data.get("success"):
+                    raise Exception("API denied access to upload nodes.")
+                
+                self.upload_url = node_data.get("url")
+                if not self.upload_url:
+                    raise Exception("No upload server URL returned.")
+                    
+                # n49.scdn.st is currently misconfigured and returns 413 for all files
+                if "n49.scdn.st" in self.upload_url:
+                    continue
+                    
+                break
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 403:
+                    raise Exception("Access Forbidden (403): Could not retrieve upload node. Is your token valid?")
+                raise Exception(f"Failed to get upload node: {e}")
 
         # 3. Get server limits
         try:
@@ -64,6 +71,13 @@ class BunkrUploader:
                 raw_chunk = check_data.get("chunkSize", {}).get("default", str(self.chunk_size))
                 raw_max = check_data.get("maxSize", "104857600")
                 self.chunk_size = self._parse_size(raw_chunk)
+                
+                # Force a smaller chunk size to avoid 413 Payload Too Large errors
+                # on certain upload nodes that have strict Nginx limits.
+                safe_chunk_limit = 5 * 1024 * 1024 # 5MB
+                if self.chunk_size > safe_chunk_limit:
+                    self.chunk_size = safe_chunk_limit
+                    
                 self.max_file_size = int(self._parse_size(raw_max) * 0.95)
         except:
             pass # Use defaults if limits check fails
@@ -152,9 +166,13 @@ class BunkrUploader:
         if not self.upload_url: self.verify_and_setup()
         size = os.path.getsize(file_path)
         name = os.path.basename(file_path)
+        
+        # Bunkr API can fail with 500 errors if filenames contain '#' characters
+        safe_name = name.replace("#", "")
+        
         if size <= self.chunk_size:
-            return self._upload_single(file_path, name, size, album_id, progress_callback)
-        return self._upload_chunked(file_path, name, size, album_id, progress_callback)
+            return self._upload_single(file_path, safe_name, size, album_id, progress_callback)
+        return self._upload_chunked(file_path, safe_name, size, album_id, progress_callback)
 
     def _upload_single(self, path, name, size, album_id, cb):
         headers = self.headers.copy()
